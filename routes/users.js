@@ -21,7 +21,7 @@ function validateUserBody(body) {
     return {
         name: body.name,
         email: body.email,
-        pendingTasks: Array.from(new Set(pendingTasks))
+        pendingTasks: Array.from(new Set(pendingTasks.map(function (id) { return id.toLowerCase(); })))
     };
 }
 

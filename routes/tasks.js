@@ -50,7 +50,7 @@ function validateTaskBody(body) {
         description: description,
         deadline: deadline,
         completed: completed,
-        assignedUser: assignedUser,
+        assignedUser: assignedUser.toLowerCase(),
         assignedUserName: assignedUserName
     };
 }

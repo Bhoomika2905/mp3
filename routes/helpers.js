@@ -69,24 +69,31 @@ function parseListQuery(query, defaultLimit) {
 async function runListQuery(Model, query, defaultLimit) {
     var params = parseListQuery(query, defaultLimit);
     var q;
-    if (params.count) {
-        q = Model.countDocuments(params.where);
-    } else {
-        q = Model.find(params.where);
-        if (params.sort) q = q.sort(params.sort);
-        if (params.select) q = q.select(params.select);
-    }
-    if (params.skip !== undefined) q = q.skip(params.skip);
-    if (params.limit !== undefined) {
-        q = q.limit(params.limit);
-    } else if (params.defaultLimit && !params.count) {
-        q = q.limit(params.defaultLimit);
+    try {
+        if (params.count) {
+            q = Model.countDocuments(params.where);
+        } else {
+            q = Model.find(params.where);
+            if (params.sort) q = q.sort(params.sort);
+            if (params.select) q = q.select(params.select);
+        }
+        if (params.skip !== undefined) q = q.skip(params.skip);
+        if (params.limit !== undefined) {
+            q = q.limit(params.limit);
+        } else if (params.defaultLimit && !params.count) {
+            q = q.limit(params.defaultLimit);
+        }
+    } catch (err) {
+        // Mongoose rejects bad sort/select values while the query is being built
+        throw new ApiError(400, 'Invalid query parameters');
     }
     try {
         return await q.exec();
     } catch (err) {
+        // A value that cannot match its field (e.g. a malformed _id) simply matches nothing
+        if (err && err.name === 'CastError') return params.count ? 0 : [];
         // Bad filters/projections/sorts are client errors, not server errors
-        if (err && (err.name === 'CastError' || err.name === 'MongoServerError' || err.name === 'StrictModeError')) {
+        if (err && (err.name === 'MongoServerError' || err.name === 'StrictModeError')) {
             throw new ApiError(400, 'Invalid query parameters');
         }
         throw err;
@@ -96,10 +103,10 @@ async function runListQuery(Model, query, defaultLimit) {
 // Find one document by the :id in the URL, honoring ?select. 404 if missing or malformed.
 async function findByIdOr404(Model, id, select, label) {
     if (!isValidId(id)) throw new ApiError(404, label + ' not found');
-    var q = Model.findById(id);
-    if (select) q = q.select(select);
     var doc;
     try {
+        var q = Model.findById(id);
+        if (select) q = q.select(select);
         doc = await q.exec();
     } catch (err) {
         if (err && (err.name === 'CastError' || err.name === 'MongoServerError')) {

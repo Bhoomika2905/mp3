@@ -27,6 +27,10 @@ module.exports = function (app, router) {
         if (err && (err.name === 'ValidationError' || err.name === 'CastError')) {
             return res.status(400).json({ message: 'The request contains invalid fields', data: null });
         }
+        // Other client errors raised by Express, e.g. a body that is too large
+        if (err && err.status >= 400 && err.status < 500) {
+            return res.status(err.status).json({ message: 'The request could not be processed', data: null });
+        }
         console.error(err);
         res.status(500).json({ message: 'Internal server error', data: null });
     });
